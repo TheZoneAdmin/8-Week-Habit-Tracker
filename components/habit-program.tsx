@@ -1,7 +1,7 @@
 // Import statements at the top
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Dumbbell, Clock, Users, ChevronDown, Save, Upload, Share2, Facebook, Info, Calendar, HelpCircle } from 'lucide-react';
+import { Dumbbell, Clock, Users, ChevronDown, Save, Upload, Share2, Facebook, Info, Calendar, HelpCircle, NotebookPen } from 'lucide-react';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Trophy, Award, Crown, Flame, AlertCircle } from 'lucide-react';
 import { Toast } from "@/components/ui/toast";
@@ -10,13 +10,14 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Import the custom hook
-import useUserStorage from '@/hooks/useUserStorage';
+import useUserStorage, { type HabitLogEntry } from '@/hooks/useUserStorage';
 
 // Import the DataManagement component
 import DataManagement from '@/components/data-management';
 import WalkthroughTour from './walkthrough-tour';
 import AchievementsPanel from './achievements-panel';
 import CollapsibleCard, { CollapsibleCardProps } from './collapsible-card';
+import { HabitNotesModal } from '@/components/ui/habit-notes-modal';
 
 // --- Icon Mapping for Habits ---
 import { Habit, Week, Program, Achievement, UserProgress, SavedData, ProgramProgress, WeekProgress, HabitProgress, TrackId } from '@/lib/types';
@@ -45,6 +46,8 @@ const HabitProgram = () => {
     const [selectedHabitInfo, setSelectedHabitInfo] = useState<Habit | null>(null);
     const [showInfoSheet, setShowInfoSheet] = useState(false);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [currentHabitForNote, setCurrentHabitForNote] = useState<{ program: TrackId; week: number; habitIndex: number; date: string } | null>(null);
     const [showOnboarding, setShowOnboarding] = useState(() => isClient ? localStorage.getItem('showOnboarding') !== 'false' : true);
 
     // Determine the next achievement to unlock
@@ -106,14 +109,16 @@ const HabitProgram = () => {
             let totalWeeklyHabits = 21; // 3 habits per day * 7 days
             
             // Count habits completed in each program's first week
-            Object.values(savedData.progress).forEach((program: ProgramProgress) => {
-              const weekOne = program[1]; // Week 1
-              if (weekOne) {
-                Object.values(weekOne).forEach((habit: HabitProgress) => {
-                  weeklyHabitsCount += (habit.completionDates || []).length;
-                });
-              }
-            });
+            if (savedData.progress && typeof savedData.progress === 'object') {
+              Object.values(savedData.progress).forEach((program: ProgramProgress) => {
+                const weekOne = program[1]; // Week 1
+                if (weekOne) {
+                  Object.values(weekOne).forEach((habit: HabitProgress) => {
+                    weeklyHabitsCount += (habit.completions || []).length;
+                  });
+                }
+              });
+            }
             
             progress = Math.min(100, (weeklyHabitsCount / totalWeeklyHabits) * 100);
             isUnlocked = weeklyHabitsCount >= totalWeeklyHabits;
@@ -137,16 +142,18 @@ const HabitProgram = () => {
             let totalHalfwayHabits = 84; // 3 habits * 4 weeks * 7 days
             
             // Count habits completed in the first 4 weeks of any program
-            Object.values(savedData.progress).forEach((program: ProgramProgress) => {
-              for (let week = 1; week <= 4; week++) {
-                const weekData = program[week];
-                if (weekData) {
-                  Object.values(weekData).forEach((habit: HabitProgress) => {
-                    halfwayHabitsCount += (habit.completionDates || []).length;
-                  });
+            if (savedData.progress && typeof savedData.progress === 'object') {
+              Object.values(savedData.progress).forEach((program: ProgramProgress) => {
+                for (let week = 1; week <= 4; week++) {
+                  const weekData = program[week];
+                  if (weekData) {
+                    Object.values(weekData).forEach((habit: HabitProgress) => {
+                      halfwayHabitsCount += (habit.completions || []).length;
+                    });
+                  }
                 }
-              }
-            });
+              });
+            }
             
             progress = Math.min(100, (halfwayHabitsCount / totalHalfwayHabits) * 100);
             isUnlocked = halfwayHabitsCount >= totalHalfwayHabits;
@@ -158,16 +165,18 @@ const HabitProgram = () => {
             let totalProgramHabits = 168; // 3 habits * 8 weeks * 7 days
             
             // Count all habits completed in any program
-            Object.values(savedData.progress).forEach((program: ProgramProgress) => {
-              for (let week = 1; week <= 8; week++) {
-                const weekData = program[week];
-                if (weekData) {
-                  Object.values(weekData).forEach((habit: HabitProgress) => {
-                    programHabitsCount += (habit.completionDates || []).length;
-                  });
+            if (savedData.progress && typeof savedData.progress === 'object') {
+              Object.values(savedData.progress).forEach((program: ProgramProgress) => {
+                for (let week = 1; week <= 8; week++) {
+                  const weekData = program[week];
+                  if (weekData) {
+                    Object.values(weekData).forEach((habit: HabitProgress) => {
+                      programHabitsCount += (habit.completions || []).length;
+                    });
+                  }
                 }
-              }
-            });
+              });
+            }
             
             progress = Math.min(100, (programHabitsCount / totalProgramHabits) * 100);
             isUnlocked = programHabitsCount >= totalProgramHabits;
@@ -187,7 +196,7 @@ const HabitProgram = () => {
               let habitStreak = 0;
               
               // Look through all programs to find the habit
-              Object.entries(savedData.progress).forEach(([programKey, program]: [string, ProgramProgress]) => {
+              Object.entries(savedData).forEach(([programKey, program]: [string, ProgramProgress]) => {
                 Object.entries(program).forEach(([weekKey, week]: [string, WeekProgress]) => {
                   Object.entries(week).forEach(([habitIdxKey, habit]: [string, HabitProgress]) => {
                     // Get the corresponding habit ID from the programs data
@@ -196,7 +205,7 @@ const HabitProgram = () => {
                     const habitIdx = parseInt(habitIdxKey);
                     
                     if (programs[programType]?.weeks?.[weekNum - 1]?.habits?.[habitIdx]?.id === achievement.targetHabitId) {
-                      const { currentStreak: habStreak } = calculateHabitStreak(habit.completionDates || []);
+                      const { currentStreak: habStreak } = calculateHabitStreak((habit.completions || []).map((c: HabitLogEntry) => c.date));
                       habitStreak = Math.max(habitStreak, habStreak);
                     }
                   });
@@ -255,19 +264,19 @@ const HabitProgram = () => {
       
       if (!updatedSavedData[program][weekNum][habitIndex]) {
         updatedSavedData[program][weekNum][habitIndex] = {
-          completionDates: []
+          completions: []
         };
       }
       
-      // Get the completion dates array for this habit
-      const completionDates = updatedSavedData[program][weekNum][habitIndex].completionDates;
+      // Get the completion entries array for this habit
+      const completions = updatedSavedData[program][weekNum][habitIndex].completions;
       
       // Check if today's date is already in the array
-      const todayIndex = completionDates.indexOf(today);
+      const todayIndex = completions.findIndex((c: HabitLogEntry) => c.date === today);
       
       if (isChecked && todayIndex === -1) {
         // Add today's date if checked and not already present
-        completionDates.push(today);
+        completions.push({ date: today });
         showToastCallback('Habit completed today!', 'success');
         
         // Update user data
@@ -298,7 +307,7 @@ const HabitProgram = () => {
         setUserData(updatedUserData);
       } else if (!isChecked && todayIndex !== -1) {
         // Remove today's date if unchecked and present
-        completionDates.splice(todayIndex, 1);
+        completions.splice(todayIndex, 1);
         showToastCallback('Habit marked incomplete', 'success');
         
         // Update user data
@@ -355,6 +364,35 @@ useEffect(() => {
     });
   }
 }, [userData, setUserData]);
+  const handleSaveNote = (program: TrackId, week: number, habitIndex: number, date: string, note: string) => {
+    setSavedData(prev => {
+      const newSavedData = JSON.parse(JSON.stringify(prev)); // Deep clone
+      if (!newSavedData[program]) newSavedData[program] = {};
+      if (!newSavedData[program][week]) newSavedData[program][week] = {};
+      if (!newSavedData[program][week][habitIndex]) newSavedData[program][week][habitIndex] = { completions: [] };
+      
+      const habitCompletions = newSavedData[program][week][habitIndex].completions as HabitLogEntry[];
+      const completionEntry = habitCompletions.find(c => c.date === date);
+
+      if (completionEntry) {
+        completionEntry.notes = note;
+      } else {
+        // If habit wasn't marked complete, mark it and add note
+        // This case might need refinement based on desired UX
+        habitCompletions.push({ date, notes: note });
+      }
+      return newSavedData;
+    });
+    showToastCallback('Note saved!', 'success');
+  };
+
+  const handleOpenNotesModal = (program: TrackId, week: number, habitIndex: number, date: string) => {
+    setCurrentHabitForNote({ program, week, habitIndex, date });
+    setIsNotesModalOpen(true);
+    // For now, we'll log. Modal component will be built next.
+    console.log('Opening notes modal for:', { program, week, habitIndex, date }); 
+  };
+
     // --- Main JSX Structure ---
     return (
       <div className="bg-gray-900 p-4 pb-24 sm:p-6 md:p-8 max-w-4xl mx-auto min-h-screen"> {/* Adjusted padding */}
@@ -476,9 +514,9 @@ useEffect(() => {
                   >
                     <div className="space-y-3 sm:space-y-4"> {/* Adjusted spacing */}
                       {week.habits.map((habit, idx) => {
-                        const completionDates = savedData[selectedTrack]?.[week.week]?.[idx]?.completionDates || [];
-                        const { currentStreak: habitStreak } = calculateHabitStreak(completionDates);
-                        const isCheckedToday = completionDates.includes(new Date().toISOString().split('T')[0]);
+                        const completions = savedData[selectedTrack]?.[week.week]?.[idx]?.completions || [];
+                        const { currentStreak: habitStreak } = calculateHabitStreak(completions.map(c => c.date));
+                        const isCheckedToday = completions.some(c => c.date === new Date().toISOString().split('T')[0]);
                         
                         // Get the corresponding icon for this habit
                         const iconName = habitIconMapping[habit.id];
@@ -516,11 +554,18 @@ useEffect(() => {
                                 >
                                   <HelpCircle className="w-3.5 h-3.5" />
                                 </button>
+                                <button
+                                  className="text-gray-400 hover:text-[#CCBA78] transition-colors"
+                                  aria-label="Add note for this habit"
+                                  onClick={() => handleOpenNotesModal(key as TrackId, week.week, idx, new Date().toISOString().split('T')[0])}
+                                >
+                                  <NotebookPen className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                               
                               <p className="text-gray-400 text-sm mt-0.5 sm:mt-1">{habit.example}</p> {/* Example slightly darker */}
                               <div className="flex items-center justify-between mt-1.5"> {/* Adjusted spacing */}
-                                <p className="text-gray-500 text-xs">Completed {completionDates.length} times</p> {/* Completion count darker */}
+                                <p className="text-gray-500 text-xs">Completed {completions.length} times</p> {/* Completion count darker */}
                                 {habitStreak > 0 && (
                                   <div className="flex items-center gap-1 text-orange-400 animate-pulse" title={`${habitStreak}-day streak`}>
                                     <Flame className="w-3.5 h-3.5" />
@@ -539,6 +584,23 @@ useEffect(() => {
             </TabsContent>
           ))}
         </Tabs>
+
+        {/* Habit Notes Modal */}
+        {currentHabitForNote && (
+          <HabitNotesModal
+            isOpen={isNotesModalOpen}
+            onClose={() => {
+              setIsNotesModalOpen(false);
+              setCurrentHabitForNote(null);
+            }}
+            habitInfo={{
+              ...currentHabitForNote,
+              habitName: programs[currentHabitForNote.program]?.weeks[currentHabitForNote.week -1]?.habits[currentHabitForNote.habitIndex]?.habit,
+              currentNote: savedData[currentHabitForNote.program]?.[currentHabitForNote.week]?.[currentHabitForNote.habitIndex]?.completions?.find(c => c.date === currentHabitForNote.date)?.notes
+            }}
+            onSaveNote={handleSaveNote}
+          />
+        )}
       </div>
     );
 };
