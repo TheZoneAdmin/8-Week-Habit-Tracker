@@ -10,6 +10,8 @@ export interface Week {
   habits: ReadonlyArray<Habit>;
 }
 
+import type { HabitLogEntry } from '@/hooks/useUserStorage';
+
 export interface Program {
   title: string;
   weeks: ReadonlyArray<Week>;
@@ -31,7 +33,7 @@ export interface Achievement {
 
 // New progress interfaces
 export interface HabitProgress {
-  completionDates?: string[];
+  completions?: HabitLogEntry[];
   completed?: boolean; // From original UserProgress value type
   notes?: string;      // From original UserProgress value type
 }

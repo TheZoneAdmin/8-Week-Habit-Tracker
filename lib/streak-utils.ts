@@ -2,7 +2,7 @@ import { SavedData, ProgramProgress, WeekProgress, HabitProgress } from './types
 
 export const calculateStreak = (savedData: SavedData): { currentStreak: number; longestStreak: number } => {
     const allDates = new Set<string>();
-    Object.values(savedData.progress).forEach((program: ProgramProgress) => Object.values(program).forEach((week: WeekProgress) => Object.values(week).forEach((habit: HabitProgress) => (habit.completionDates || []).forEach((date: string) => allDates.add(date)))));
+    Object.values(savedData).forEach((program: ProgramProgress) => Object.values(program).forEach((week: WeekProgress) => Object.values(week).forEach((habit: HabitProgress) => (habit.completions || []).forEach((entry) => allDates.add(entry.date)))));
     const sortedDates = Array.from(allDates).sort();
     if (sortedDates.length === 0) return { currentStreak: 0, longestStreak: 0 };
     const today = new Date(), yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);

@@ -114,7 +114,7 @@ const HabitProgram = () => {
                 const weekOne = program[1]; // Week 1
                 if (weekOne) {
                   Object.values(weekOne).forEach((habit: HabitProgress) => {
-                    weeklyHabitsCount += (habit.completions || []).length;
+                    weeklyHabitsCount += (habit?.completions?.length || 0);
                   });
                 }
               });
