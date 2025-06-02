@@ -1,7 +1,7 @@
 // Import statements at the top
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Dumbbell, Clock, Users, ChevronDown, Save, Upload, Share2, Facebook, Info, Calendar, HelpCircle, NotebookPen } from 'lucide-react';
+import { Dumbbell, Clock, Users, ChevronDown, Save, Upload, Share2, Facebook, Info, Calendar, HelpCircle, FileEdit } from 'lucide-react';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Trophy, Award, Crown, Flame, AlertCircle } from 'lucide-react';
 import { Toast } from "@/components/ui/toast";
@@ -559,7 +559,7 @@ useEffect(() => {
                                   aria-label="Add note for this habit"
                                   onClick={() => handleOpenNotesModal(key as TrackId, week.week, idx, new Date().toISOString().split('T')[0])}
                                 >
-                                  <NotebookPen className="w-3.5 h-3.5" />
+                                  <FileEdit className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                               

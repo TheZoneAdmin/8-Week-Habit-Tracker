@@ -29,11 +29,16 @@ interface UserProgress {
   lastUpdated: string;
 }
 
+export interface HabitLogEntry {
+  date: string;
+  notes?: string;
+}
+
 interface SavedData {
   [program: string]: {
     [week: number]: {
       [habitIndex: number]: {
-        completionDates: string[];
+        completions: HabitLogEntry[];
       };
     };
   };
@@ -103,7 +108,12 @@ export const useUserStorage = (showToastCallback: (message: string, type?: 'succ
     if (storedSavedData) {
       try {
         const parsedData = JSON.parse(storedSavedData);
-        setSavedData(parsedData);
+        if (parsedData === null) {
+          console.warn('Parsed savedData from localStorage was null, resetting to initial data.');
+          setSavedData(INITIAL_SAVED_DATA);
+        } else {
+          setSavedData(parsedData);
+        }
       } catch (e) {
         console.error('Error parsing saved data:', e);
         setSavedData(INITIAL_SAVED_DATA);
