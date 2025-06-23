@@ -33,7 +33,7 @@ import { calculateStreak, calculateHabitStreak } from '@/lib/streak-utils';
 // --- Main HabitProgram Component ---
 const HabitProgram = () => {
     const [toastInfo, setToastInfo] = useState<{ message: string; type?: 'success' | 'error' } | null>(null);
-    const [selectedTrack, setSelectedTrack] = useState<TrackId>(() => isClient ? (localStorage.getItem('selectedTrack') as TrackId || 'strength') : 'strength'); // Default to 'strength', load from localStorage
+    const [selectedTrack, setSelectedTrack] = useState<TrackId>('strength'); // Initialize with a default, load from localStorage in effect
     const [showWalkthrough, setShowWalkthrough] = useState(false);
     
     const showToastCallback = useCallback((message: string, type: 'success' | 'error' = 'success') => {
@@ -48,7 +48,7 @@ const HabitProgram = () => {
     const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   const [currentHabitForNote, setCurrentHabitForNote] = useState<{ program: TrackId; week: number; habitIndex: number; date: string } | null>(null);
-    const [showOnboarding, setShowOnboarding] = useState(() => isClient ? localStorage.getItem('showOnboarding') !== 'false' : true);
+    const [showOnboarding, setShowOnboarding] = useState(true); // Initialize with default, load from localStorage in effect
     // State to manage open weeks
     const [openWeeks, setOpenWeeks] = useState<Record<string, boolean>>({});
 
@@ -69,6 +69,18 @@ const HabitProgram = () => {
     
     useEffect(() => { 
         if (isClient) {
+            // Load selected track from localStorage
+            const savedTrack = localStorage.getItem('selectedTrack');
+            if (savedTrack && Object.keys(programs).includes(savedTrack)) {
+                setSelectedTrack(savedTrack as TrackId);
+            }
+
+            // Load showOnboarding state from localStorage
+            const savedOnboarding = localStorage.getItem('showOnboarding');
+            if (savedOnboarding !== null) {
+                setShowOnboarding(savedOnboarding !== 'false');
+            }
+
             localStorage.setItem('showOnboarding', showOnboarding.toString());
             
             // Load open weeks from localStorage on initial mount
@@ -88,7 +100,7 @@ const HabitProgram = () => {
                 localStorage.setItem('hasVisitedBefore', 'true');
             }
         }
-    }, [showOnboarding, isClient, setUserData]);
+    }, [isClient, setUserData]); // Dependencies updated
     
     // Effect to save the selected track and open weeks to localStorage whenever they change
     useEffect(() => {
