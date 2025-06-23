@@ -8,7 +8,6 @@ export interface CollapsibleCardProps {
     title: string;
     idSuffix: string; // For unique IDs like 'week-1-content', 'achievements-content'
     children: React.ReactNode;
-    defaultOpen?: boolean;
     headerInfo?: React.ReactNode; // For things like "Start here!" badge or other indicators
     isOpen?: boolean; // Optional prop to control open state externally
     onToggle?: (isOpen: boolean) => void; // Optional callback for when the card is toggled
