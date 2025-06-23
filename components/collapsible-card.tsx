@@ -10,6 +10,8 @@ export interface CollapsibleCardProps {
     children: React.ReactNode;
     defaultOpen?: boolean;
     headerInfo?: React.ReactNode; // For things like "Start here!" badge or other indicators
+    isOpen?: boolean; // Optional prop to control open state externally
+    onToggle?: (isOpen: boolean) => void; // Optional callback for when the card is toggled
     cardClassName?: string; // Optional additional classes for the Card itself
 }
 
@@ -17,14 +19,18 @@ const CollapsibleCard: React.FC<CollapsibleCardProps> = ({ title, idSuffix, chil
     const [isOpen, setIsOpen] = useState(defaultOpen);
     
     return (
-        <Card className={`bg-gray-800 overflow-hidden rounded-lg border border-gray-700/50 ${cardClassName || ''}`}>
+        <Card className={`bg-gray-800 overflow-hidden rounded-lg border border-gray-700/50 ${cardClassName ?? ''}`}>
             <div 
                 className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-gray-700/50 transition-colors"
-                onClick={() => setIsOpen(!isOpen)} 
+                onClick={() => {
+                    const newState = !isOpen;
+                    setIsOpen(newState);
+                    onToggle?.(newState); // Call onToggle if it exists
+                }}
                 role="button" 
                 aria-expanded={isOpen} 
                 aria-controls={`${idSuffix}-content`}
-            >
+>
                 <div className="flex items-center">
                     <h3 className="text-[#CCBA78] text-lg font-semibold">{title}</h3>
                     {headerInfo && <div className="ml-2 flex items-center">{headerInfo}</div>}
