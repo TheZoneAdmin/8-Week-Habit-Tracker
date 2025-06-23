@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import React from 'react';
 import { ChevronDown } from 'lucide-react';
 // --- CollapsibleCard Component ---
 
@@ -15,16 +15,13 @@ export interface CollapsibleCardProps {
     cardClassName?: string; // Optional additional classes for the Card itself
 }
 
-const CollapsibleCard: React.FC<CollapsibleCardProps> = ({ title, idSuffix, children, defaultOpen = false, headerInfo, cardClassName, onToggle }) => {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
-    
+const CollapsibleCard: React.FC<CollapsibleCardProps> = ({ title, idSuffix, children, isOpen, headerInfo, cardClassName, onToggle }) => {
     return (
         <Card className={`bg-gray-800 overflow-hidden rounded-lg border border-gray-700/50 ${cardClassName ?? ''}`}>
             <div 
                 className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-gray-700/50 transition-colors"
                 onClick={() => {
-                    const newState = !isOpen;
-                    setIsOpen(newState);
+                    const newState = !isOpen; // Assuming isOpen is controlled externally
                     onToggle?.(newState); // Call onToggle if it exists
                 }}
                 role="button" 
