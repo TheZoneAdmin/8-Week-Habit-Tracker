@@ -33,7 +33,7 @@ import { calculateStreak, calculateHabitStreak } from '@/lib/streak-utils';
 // --- Main HabitProgram Component ---
 const HabitProgram = () => {
     const [toastInfo, setToastInfo] = useState<{ message: string; type?: 'success' | 'error' } | null>(null);
-    const [selectedTrack, setSelectedTrack] = useState<TrackId>('strength'); // Default to 'strength'
+    const [selectedTrack, setSelectedTrack] = useState<TrackId>(() => isClient ? (localStorage.getItem('selectedTrack') as TrackId || 'strength') : 'strength'); // Default to 'strength', load from localStorage
     const [showWalkthrough, setShowWalkthrough] = useState(false);
     
     const showToastCallback = useCallback((message: string, type: 'success' | 'error' = 'success') => {
@@ -49,6 +49,8 @@ const HabitProgram = () => {
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   const [currentHabitForNote, setCurrentHabitForNote] = useState<{ program: TrackId; week: number; habitIndex: number; date: string } | null>(null);
     const [showOnboarding, setShowOnboarding] = useState(() => isClient ? localStorage.getItem('showOnboarding') !== 'false' : true);
+    // State to manage open weeks
+    const [openWeeks, setOpenWeeks] = useState<Record<string, boolean>>({});
 
     // Determine the next achievement to unlock
     let nextAchievementToUnlock: Achievement | undefined = undefined;
@@ -69,6 +71,15 @@ const HabitProgram = () => {
         if (isClient) {
             localStorage.setItem('showOnboarding', showOnboarding.toString());
             
+            // Load open weeks from localStorage on initial mount
+            const savedOpenWeeks = localStorage.getItem('openWeeks');
+            if (savedOpenWeeks) {
+                try {
+                    setOpenWeeks(JSON.parse(savedOpenWeeks));
+                } catch (error) {
+                    console.error("Failed to parse saved open weeks:", error);
+                }
+            }
             // Check if first time user
             const hasVisitedBefore = localStorage.getItem('hasVisitedBefore');
             if (!hasVisitedBefore) {
@@ -77,7 +88,16 @@ const HabitProgram = () => {
                 localStorage.setItem('hasVisitedBefore', 'true');
             }
         }
-    }, [showOnboarding, isClient]);
+    }, [showOnboarding, isClient, setUserData]);
+    
+    // Effect to save the selected track and open weeks to localStorage whenever they change
+    useEffect(() => {
+        if (isClient) {
+            localStorage.setItem('selectedTrack', selectedTrack);
+            localStorage.setItem('openWeeks', JSON.stringify(openWeeks));
+        }
+    }, [selectedTrack, openWeeks, isClient]);
+
 
     // Function to check and update achievements
     const checkAndUpdateAchievements = (
@@ -488,7 +508,7 @@ useEffect(() => {
         {/* Program Tabs */}
         <Tabs 
           defaultValue="strength" 
-          className="mb-20 sm:mb-0"
+          className="mb-20 sm:mb-0" // Keep this margin at the bottom
           onValueChange={(value) => setSelectedTrack(value as TrackId)}
         >
           <TabsList className="grid grid-cols-3 gap-2 mb-6">
@@ -509,8 +529,16 @@ useEffect(() => {
                     title={`Week ${week.week} - ${week.focus}`} 
                     idSuffix={`${key}-week-${week.week}`}
                     defaultOpen={week.week === 1}
+                    isOpen={openWeeks[`${key}-${week.week}`]}
+                    onToggle={(isOpen) => {
+                        setOpenWeeks(prev => ({
+                            ...prev,
+                            [`${key}-${week.week}`]: isOpen
+                        }));
+                    }}
                     headerInfo={week.week === 1 ? <span className="text-xs bg-[#CCBA78] text-gray-900 px-2 py-0.5 rounded-full">Start here!</span> : undefined}
                     cardClassName={week.week === 1 ? 'border-2 border-[#CCBA78]/50' : 'border-gray-700/50'}
+
                   >
                     <div className="space-y-3 sm:space-y-4"> {/* Adjusted spacing */}
                       {week.habits.map((habit, idx) => {
