@@ -89,7 +89,7 @@ const HabitProgram = () => {
             if (savedOpenWeeks) {
                 try {
                     setOpenWeeks(JSON.parse(savedOpenWeeks));
-                    console.error("Failed to parse saved open weeks:", error);
+                } catch (error) {
                 }
             }
             // Check if first time user
