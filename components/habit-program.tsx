@@ -50,7 +50,7 @@ const HabitProgram = () => {
   const [currentHabitForNote, setCurrentHabitForNote] = useState<{ program: TrackId; week: number; habitIndex: number; date: string } | null>(null);
     const [showOnboarding, setShowOnboarding] = useState(true); // Initialize with default, load from localStorage in effect
     // State to manage open weeks
-    const [openWeeks, setOpenWeeks] = useState<Record<string, boolean>>({});
+    const [openWeeks, setOpenWeeks] = useState<Record<string, boolean>>({}); // Initialize with empty object, load from localStorage in effect
 
     // Determine the next achievement to unlock
     let nextAchievementToUnlock: Achievement | undefined = undefined;
@@ -81,14 +81,14 @@ const HabitProgram = () => {
                 setShowOnboarding(savedOnboarding !== 'false');
             }
 
-            localStorage.setItem('showOnboarding', showOnboarding.toString());
+            // Save showOnboarding state whenever it changes
+            localStorage.setItem('showOnboarding', showOnboarding.toString()); // Move this to a separate effect if you want to save on change
             
             // Load open weeks from localStorage on initial mount
             const savedOpenWeeks = localStorage.getItem('openWeeks');
             if (savedOpenWeeks) {
                 try {
                     setOpenWeeks(JSON.parse(savedOpenWeeks));
-                } catch (error) {
                     console.error("Failed to parse saved open weeks:", error);
                 }
             }
@@ -99,8 +99,7 @@ const HabitProgram = () => {
                 setShowWalkthrough(true);
                 localStorage.setItem('hasVisitedBefore', 'true');
             }
-        }
-    }, [isClient, setUserData]); // Dependencies updated
+        }    }, [isClient, showOnboarding, setUserData]); // Dependencies updated
     
     // Effect to save the selected track and open weeks to localStorage whenever they change
     useEffect(() => {
