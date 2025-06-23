@@ -502,11 +502,17 @@ useEffect(() => {
 
         {/* Achievements Panel - Collapsible */}
         {userData && userData.achievements && userData.achievements.length > 0 && (
-          <CollapsibleCard 
-            title="🏆 Achievements & Progress" 
-            idSuffix="achievements" 
-            defaultOpen={true} // Keep achievements open by default
-            cardClassName="border-gray-700/50 mb-6"
+ <CollapsibleCard
+ title="🏆 Achievements & Progress"
+ idSuffix="achievements"
+ isOpen={openWeeks['achievements']} // Manage open state with openWeeks
+ onToggle={(isOpen) => {
+ setOpenWeeks(prev => ({
+ ...prev,
+ 'achievements': isOpen
+ }));
+ }}
+ cardClassName="border-gray-700/50 mb-6"
           >
             <AchievementsPanel 
                 achievements={userData.achievements} 
