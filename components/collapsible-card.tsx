@@ -15,7 +15,7 @@ export interface CollapsibleCardProps {
     cardClassName?: string; // Optional additional classes for the Card itself
 }
 
-const CollapsibleCard: React.FC<CollapsibleCardProps> = ({ title, idSuffix, children, defaultOpen = false, headerInfo, cardClassName }) => {
+const CollapsibleCard: React.FC<CollapsibleCardProps> = ({ title, idSuffix, children, defaultOpen = false, headerInfo, cardClassName, onToggle }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
     
     return (
