@@ -1,43 +1,64 @@
 import { Card, CardContent } from '@/components/ui/card';
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { ChevronDown } from 'lucide-react';
-// --- CollapsibleCard Component ---
 
 // Props for CollapsibleCard
 export interface CollapsibleCardProps {
     title: string;
-    idSuffix: string; // For unique IDs like 'week-1-content', 'achievements-content'
+    idSuffix: string;
     children: React.ReactNode;
-    headerInfo?: React.ReactNode; // For things like "Start here!" badge or other indicators
-    isOpen?: boolean; // Optional prop to control open state externally
-    onToggle?: (isOpen: boolean) => void; // Optional callback for when the card is toggled
-    cardClassName?: string; // Optional additional classes for the Card itself
+    headerInfo?: React.ReactNode;
+    isOpen?: boolean;
+    onToggle?: (isOpen: boolean) => void;
+    cardClassName?: string;
 }
 
-const CollapsibleCard: React.FC<CollapsibleCardProps> = ({ title, idSuffix, children, isOpen, headerInfo, cardClassName, onToggle }) => {
+const CollapsibleCard: React.FC<CollapsibleCardProps> = ({
+    title,
+    idSuffix,
+    children,
+    isOpen: controlledOpen,
+    headerInfo,
+    cardClassName,
+    onToggle,
+}) => {
+    // Support controlled or uncontrolled usage
+    const [internalOpen, setInternalOpen] = useState(false);
+    const isControlled = controlledOpen !== undefined;
+    const open = isControlled ? controlledOpen : internalOpen;
+
+    const handleToggle = useCallback(() => {
+        if (isControlled) {
+            onToggle?.(!controlledOpen);
+        } else {
+            setInternalOpen((prev) => {
+                const newState = !prev;
+                onToggle?.(newState);
+                return newState;
+            });
+        }
+    }, [isControlled, controlledOpen, onToggle]);
+
     return (
         <Card className={`bg-gray-800 overflow-hidden rounded-lg border border-gray-700/50 ${cardClassName ?? ''}`}>
-            <div 
+            <div
                 className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-gray-700/50 transition-colors"
-                onClick={() => {
-                    const newState = !isOpen; // Assuming isOpen is controlled externally
-                    onToggle?.(newState); // Call onToggle if it exists
-                }}
-                role="button" 
-                aria-expanded={isOpen} 
+                onClick={handleToggle}
+                role="button"
+                aria-expanded={open}
                 aria-controls={`${idSuffix}-content`}
->
+            >
                 <div className="flex items-center">
                     <h3 className="text-[#CCBA78] text-lg font-semibold">{title}</h3>
                     {headerInfo && <div className="ml-2 flex items-center">{headerInfo}</div>}
                 </div>
-                <ChevronDown className={`w-5 h-5 text-[#CCBA78] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-5 h-5 text-[#CCBA78] transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
             </div>
-            {isOpen && (
-               <CardContent id={`${idSuffix}-content`} className="p-4 sm:p-6 pt-4 border-t border-gray-700">
-                   {children}
-               </CardContent>
-             )}
+            {open && (
+                <CardContent id={`${idSuffix}-content`} className="p-4 sm:p-6 pt-4 border-t border-gray-700">
+                    {children}
+                </CardContent>
+            )}
         </Card>
     );
 };

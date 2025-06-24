@@ -26,6 +26,7 @@ import { ACHIEVEMENTS, PRIORITIZED_ACHIEVEMENTS } from '@/lib/data/achievements-
 import { calculateStreak, calculateHabitStreak } from '@/lib/streak-utils';
 
 
+
 // --- Achievements Definition ---
 
 
@@ -545,9 +546,9 @@ useEffect(() => {
                     key={`${key}-week-${week.week}`} 
                     title={`Week ${week.week} - ${week.focus}`} 
                     idSuffix={`${key}-week-${week.week}`}
-                    defaultOpen={week.week === 1}
                     isOpen={openWeeks[`${key}-${week.week}`]}
                     onToggle={(isOpen) => {
+                        console.log('Toggling', `${key}-${week.week}`, 'to', isOpen);
                         setOpenWeeks(prev => ({
                             ...prev,
                             [`${key}-${week.week}`]: isOpen
