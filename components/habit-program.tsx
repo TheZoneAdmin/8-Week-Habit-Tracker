@@ -82,8 +82,7 @@ const HabitProgram = () => {
                 setShowOnboarding(savedOnboarding !== 'false');
             }
 
-            // Save showOnboarding state whenever it changes
-            localStorage.setItem('showOnboarding', showOnboarding.toString()); // Move this to a separate effect if you want to save on change
+            
             
             // Load open weeks from localStorage on initial mount
             const savedOpenWeeks = localStorage.getItem('openWeeks');
@@ -100,8 +99,18 @@ const HabitProgram = () => {
                 setShowWalkthrough(true);
                 localStorage.setItem('hasVisitedBefore', 'true');
             }
-        }    }, [isClient, showOnboarding, setUserData]); // Dependencies updated
+        }    }, [isClient, setUserData]); // Dependencies updated
     
+useEffect(() => {
+  if (!isClient) return;
+  // Debounce saving showOnboarding to localStorage
+  const handler = setTimeout(() => {
+    localStorage.setItem('showOnboarding', showOnboarding.toString());
+  }, 300); // 300ms debounce, adjust as needed
+
+  return () => clearTimeout(handler);
+}, [showOnboarding, isClient]);
+
     // Effect to save the selected track and open weeks to localStorage whenever they change
     useEffect(() => {
         if (isClient) {
