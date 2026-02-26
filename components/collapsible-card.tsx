@@ -41,10 +41,10 @@ const CollapsibleCard: React.FC<CollapsibleCardProps> = ({
 
     return (
         <Card className={`bg-gray-800 overflow-hidden rounded-lg border border-gray-700/50 ${cardClassName ?? ''}`}>
-            <div
-                className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-gray-700/50 transition-colors"
+            <button
+                type="button"
+                className="w-full flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-gray-700/50 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCBA78] focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800"
                 onClick={handleToggle}
-                role="button"
                 aria-expanded={open}
                 aria-controls={`${idSuffix}-content`}
             >
@@ -53,7 +53,7 @@ const CollapsibleCard: React.FC<CollapsibleCardProps> = ({
                     {headerInfo && <div className="ml-2 flex items-center">{headerInfo}</div>}
                 </div>
                 <ChevronDown className={`w-5 h-5 text-[#CCBA78] transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-            </div>
+            </button>
             {open && (
                 <CardContent id={`${idSuffix}-content`} className="p-4 sm:p-6 pt-4 border-t border-gray-700">
                     {children}

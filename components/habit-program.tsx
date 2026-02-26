@@ -53,6 +53,57 @@ const HabitProgram = () => {
     // State to manage open weeks
     const [openWeeks, setOpenWeeks] = useState<Record<string, boolean>>({}); // Initialize with empty object, load from localStorage in effect
 
+    const selectedProgram = (selectedTrack in programs ? programs[selectedTrack as keyof typeof programs] : null);
+
+    const today = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+    const trackWeekProgress = useMemo(() => {
+      if (!selectedProgram || !(selectedTrack in savedData)) return null;
+
+      const programSavedData = savedData[selectedTrack as keyof typeof savedData] || {};
+      const progressByWeek = selectedProgram.weeks.map((week) => {
+        const weekData = programSavedData[week.week] || {};
+        const completedInWeek = Object.values(weekData).reduce((acc: number, habit: HabitProgress) => acc + (habit.completions?.length || 0), 0);
+        const weekTarget = week.habits.length * 7;
+        return {
+          week: week.week,
+          completedInWeek,
+          weekTarget,
+          habitsPerDay: week.habits.length,
+          completedToday: Object.values(weekData).filter((habit: HabitProgress) => (habit.completions || []).some((c: HabitLogEntry) => c.date === today)).length,
+        };
+      });
+
+      const suggestedWeek = progressByWeek.find((week) => week.completedInWeek < week.weekTarget)?.week ?? selectedProgram.weeks[selectedProgram.weeks.length - 1].week;
+      const activeWeek = progressByWeek.find((week) => week.week === suggestedWeek);
+
+      return {
+        suggestedWeek,
+        completedToday: activeWeek?.completedToday ?? 0,
+        habitsPerDay: activeWeek?.habitsPerDay ?? 0,
+        progressPercentage: Math.round(((activeWeek?.completedInWeek ?? 0) / Math.max(1, (activeWeek?.weekTarget ?? 1))) * 100),
+      };
+    }, [savedData, selectedProgram, selectedTrack, today]);
+
+    const trackProgressChartData = useMemo(() => {
+      if (!selectedProgram || !(selectedTrack in savedData)) return [];
+      const programSavedData = savedData[selectedTrack as keyof typeof savedData] || {};
+
+      return selectedProgram.weeks.map((week) => {
+        const weekData = programSavedData[week.week] || {};
+        const completed = Object.values(weekData).reduce((acc: number, habit: HabitProgress) => acc + (habit.completions?.length || 0), 0);
+        const target = week.habits.length * 7;
+        const percentage = Math.round((completed / Math.max(1, target)) * 100);
+
+        return {
+          week: week.week,
+          completed,
+          target,
+          percentage,
+        };
+      });
+    }, [savedData, selectedProgram, selectedTrack]);
+
     // Determine the next achievement to unlock
     let nextAchievementToUnlock: Achievement | undefined = undefined;
     if (userData && userData.achievements) {
@@ -120,6 +171,7 @@ useEffect(() => {
     }, [selectedTrack, openWeeks, isClient]);
 
 
+
     // Function to check and update achievements
     const checkAndUpdateAchievements = (
       currentAchievements: Achievement[],
@@ -132,6 +184,7 @@ useEffect(() => {
       
       // Initialize an array to store newly unlocked achievements for notifications
       const newlyUnlocked: Achievement[] = [];
+      const savedPrograms = savedData as unknown as Record<string, ProgramProgress>;
       
       // Check each achievement
       updatedAchievements.forEach((achievement, index) => {
@@ -144,26 +197,23 @@ useEffect(() => {
         // Calculate progress based on achievement type
         switch (achievement.id) {
           // First Week Champion
-          case 'first-week':
-            // Count how many days in a week have habits completed
-            let weeklyHabitsCount = 0;
-            let totalWeeklyHabits = 21; // 3 habits per day * 7 days
-            
-            // Count habits completed in each program's first week
-            if (savedData.progress && typeof savedData.progress === 'object') {
-              Object.values(savedData.progress).forEach((program: ProgramProgress) => {
-                const weekOne = program[1]; // Week 1
-                if (weekOne) {
-                  Object.values(weekOne).forEach((habit: HabitProgress) => {
-                    weeklyHabitsCount += (habit?.completions?.length || 0);
-                  });
-                }
-              });
-            }
-            
-            progress = Math.min(100, (weeklyHabitsCount / totalWeeklyHabits) * 100);
-            isUnlocked = weeklyHabitsCount >= totalWeeklyHabits;
+          case 'first-week': {
+            const firstWeekProgramProgress = (Object.keys(programs) as Array<keyof typeof programs>).map((programKey) => {
+              const weekOneTarget = (programs[programKey]?.weeks?.[0]?.habits?.length ?? 0) * 7;
+              const weekOneData = savedPrograms[programKey]?.[1] || {};
+              const weekOneCompleted = Object.values(weekOneData).reduce((acc: number, habit: HabitProgress) => acc + (habit?.completions?.length || 0), 0);
+              return {
+                target: weekOneTarget,
+                completed: weekOneCompleted,
+                ratio: weekOneTarget > 0 ? weekOneCompleted / weekOneTarget : 0,
+              };
+            });
+
+            const bestWeekOne = firstWeekProgramProgress.reduce((best, current) => current.ratio > best.ratio ? current : best, { target: 1, completed: 0, ratio: 0 });
+            progress = Math.min(100, bestWeekOne.ratio * 100);
+            isUnlocked = firstWeekProgramProgress.some((entry) => entry.target > 0 && entry.completed >= entry.target);
             break;
+          }
             
           // Habit Warrior (50 total habits)
           case 'habit-warrior':
@@ -178,50 +228,52 @@ useEffect(() => {
             break;
             
           // Halfway There (Weeks 1-4 complete)
-          case 'halfway-there':
-            let halfwayHabitsCount = 0;
-            let totalHalfwayHabits = 84; // 3 habits * 4 weeks * 7 days
-            
-            // Count habits completed in the first 4 weeks of any program
-            if (savedData.progress && typeof savedData.progress === 'object') {
-              Object.values(savedData.progress).forEach((program: ProgramProgress) => {
-                for (let week = 1; week <= 4; week++) {
-                  const weekData = program[week];
-                  if (weekData) {
-                    Object.values(weekData).forEach((habit: HabitProgress) => {
-                      halfwayHabitsCount += (habit.completions || []).length;
-                    });
-                  }
-                }
-              });
-            }
-            
-            progress = Math.min(100, (halfwayHabitsCount / totalHalfwayHabits) * 100);
-            isUnlocked = halfwayHabitsCount >= totalHalfwayHabits;
+          case 'halfway-there': {
+            const halfwayProgramProgress = (Object.keys(programs) as Array<keyof typeof programs>).map((programKey) => {
+              const programDefinition = programs[programKey];
+              const halfwayWeekCount = Math.max(1, Math.ceil(programDefinition.weeks.length / 2));
+              let completed = 0;
+              let target = 0;
+
+              for (let week = 1; week <= halfwayWeekCount; week++) {
+                const weekTarget = (programDefinition.weeks[week - 1]?.habits?.length ?? 0) * 7;
+                target += weekTarget;
+                const weekData = savedPrograms[programKey]?.[week] || {};
+                completed += Object.values(weekData).reduce((acc: number, habit: HabitProgress) => acc + (habit.completions || []).length, 0);
+              }
+
+              const ratio = target > 0 ? completed / target : 0;
+              return { completed, target, ratio };
+            });
+
+            const bestHalfway = halfwayProgramProgress.reduce((best, current) => current.ratio > best.ratio ? current : best, { completed: 0, target: 1, ratio: 0 });
+            progress = Math.min(100, bestHalfway.ratio * 100);
+            isUnlocked = halfwayProgramProgress.some((entry) => entry.target > 0 && entry.completed >= entry.target);
             break;
+          }
             
           // Program Master (complete entire 8-week program)
-          case 'program-master':
-            let programHabitsCount = 0;
-            let totalProgramHabits = 168; // 3 habits * 8 weeks * 7 days
-            
-            // Count all habits completed in any program
-            if (savedData.progress && typeof savedData.progress === 'object') {
-              Object.values(savedData.progress).forEach((program: ProgramProgress) => {
-                for (let week = 1; week <= 8; week++) {
-                  const weekData = program[week];
-                  if (weekData) {
-                    Object.values(weekData).forEach((habit: HabitProgress) => {
-                      programHabitsCount += (habit.completions || []).length;
-                    });
-                  }
-                }
-              });
-            }
-            
-            progress = Math.min(100, (programHabitsCount / totalProgramHabits) * 100);
-            isUnlocked = programHabitsCount >= totalProgramHabits;
+          case 'program-master': {
+            const programCompletionProgress = (Object.keys(programs) as Array<keyof typeof programs>).map((programKey) => {
+              const programDefinition = programs[programKey];
+              let completed = 0;
+              let target = 0;
+
+              for (let week = 1; week <= programDefinition.weeks.length; week++) {
+                target += (programDefinition.weeks[week - 1]?.habits?.length ?? 0) * 7;
+                const weekData = savedPrograms[programKey]?.[week] || {};
+                completed += Object.values(weekData).reduce((acc: number, habit: HabitProgress) => acc + (habit.completions || []).length, 0);
+              }
+
+              const ratio = target > 0 ? completed / target : 0;
+              return { completed, target, ratio };
+            });
+
+            const bestProgramRun = programCompletionProgress.reduce((best, current) => current.ratio > best.ratio ? current : best, { completed: 0, target: 1, ratio: 0 });
+            progress = Math.min(100, bestProgramRun.ratio * 100);
+            isUnlocked = programCompletionProgress.some((entry) => entry.target > 0 && entry.completed >= entry.target);
             break;
+          }
             
           // Streak Master (7-day check-in streak)
           case 'streak-master-login':
@@ -238,6 +290,7 @@ useEffect(() => {
               
               // Look through all programs to find the habit
               Object.entries(savedData).forEach(([programKey, program]: [string, ProgramProgress]) => {
+                if (!(programKey in programs)) return;
                 Object.entries(program).forEach(([weekKey, week]: [string, WeekProgress]) => {
                   Object.entries(week).forEach(([habitIdxKey, habit]: [string, HabitProgress]) => {
                     // Get the corresponding habit ID from the programs data
@@ -430,11 +483,22 @@ useEffect(() => {
   const handleOpenNotesModal = (program: TrackId, week: number, habitIndex: number, date: string) => {
     setCurrentHabitForNote({ program, week, habitIndex, date });
     setIsNotesModalOpen(true);
-    // For now, we'll log. Modal component will be built next.
-    console.log('Opening notes modal for:', { program, week, habitIndex, date }); 
   };
 
     // --- Main JSX Structure ---
+
+    if (isLoading) {
+      return (
+        <div className="bg-gray-900 p-4 sm:p-6 md:p-8 max-w-4xl mx-auto min-h-screen">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-gray-800 rounded w-1/2" />
+            <div className="h-24 bg-gray-800 rounded" />
+            <div className="h-20 bg-gray-800 rounded" />
+            <div className="h-64 bg-gray-800 rounded" />
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="bg-gray-900 p-4 pb-24 sm:p-6 md:p-8 max-w-4xl mx-auto min-h-screen"> {/* Adjusted padding */}
         {/* First-Timer Walkthrough */}
@@ -453,6 +517,31 @@ useEffect(() => {
             <HelpCircle className="w-4 h-4 mr-1" />
             <span>How it works</span>
           </button>
+        </div>
+
+        <div className="sticky top-2 z-40 bg-gray-900/95 backdrop-blur border border-gray-800 rounded-lg p-3 mb-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setOpenWeeks(prev => ({ ...prev, achievements: true }))}
+              className="text-xs sm:text-sm bg-gray-800 hover:bg-gray-700 text-gray-200 px-3 py-1.5 rounded"
+            >
+              View achievements
+            </button>
+            {trackWeekProgress && (
+              <button
+                onClick={() => setOpenWeeks(prev => ({ ...prev, [`${selectedTrack}-${trackWeekProgress.suggestedWeek}`]: true }))}
+                className="text-xs sm:text-sm bg-[#CCBA78] text-gray-900 px-3 py-1.5 rounded font-medium hover:bg-[#d7c98d]"
+              >
+                Continue week {trackWeekProgress.suggestedWeek}
+              </button>
+            )}
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="text-xs sm:text-sm bg-gray-800 hover:bg-gray-700 text-gray-200 px-3 py-1.5 rounded ml-auto"
+            >
+              Back to top
+            </button>
+          </div>
         </div>
 
         {/* Onboarding Section */}
@@ -497,6 +586,57 @@ useEffect(() => {
         {/* Data Management */}
         <DataManagement userId={userId} onExport={exportProgress} onImport={importProgress} onReset={() => setShowResetConfirm(true)} />
 
+        {trackWeekProgress && selectedProgram && (
+          <div className="bg-gray-800 rounded-lg mb-6 p-4 border border-gray-700/50">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-400">Today's focus</p>
+                <h3 className="text-white text-lg font-semibold">Week {trackWeekProgress.suggestedWeek} momentum</h3>
+                <p className="text-sm text-gray-300 mt-1">
+                  {trackWeekProgress.completedToday}/{trackWeekProgress.habitsPerDay} habits checked today • {trackWeekProgress.progressPercentage}% of week complete
+                </p>
+              </div>
+              <button
+                onClick={() => setOpenWeeks(prev => ({ ...prev, [`${selectedTrack}-${trackWeekProgress.suggestedWeek}`]: true }))}
+                className="text-xs bg-[#CCBA78] text-gray-900 px-3 py-1.5 rounded font-medium hover:bg-[#d7c98d] transition-colors"
+              >
+                Open Week {trackWeekProgress.suggestedWeek}
+              </button>
+            </div>
+            <div className="w-full h-2 bg-gray-700 rounded-full mt-3">
+              <div
+                className="h-2 bg-[#CCBA78] rounded-full transition-all"
+                style={{ width: `${Math.min(trackWeekProgress.progressPercentage, 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {trackProgressChartData.length > 0 && (
+          <div className="bg-gray-800 rounded-lg mb-6 p-4 border border-gray-700/50">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-white text-base font-semibold">Progression chart</h3>
+              <p className="text-xs text-gray-400">Auto-scales with any program length</p>
+            </div>
+            <div className="space-y-2">
+              {trackProgressChartData.map((week) => (
+                <div key={`chart-week-${week.week}`}>
+                  <div className="flex justify-between text-xs text-gray-300 mb-1">
+                    <span>Week {week.week}</span>
+                    <span>{week.completed}/{week.target} • {week.percentage}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[#CCBA78] transition-all"
+                      style={{ width: `${Math.min(100, week.percentage)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Reset Dialog */}
         <AlertDialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
           <AlertDialogContent className="bg-gray-800 text-white"><AlertDialogHeader><AlertDialogTitle className="text-red-500">Reset Progress?</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="bg-gray-600 hover:bg-gray-500 border-none">Cancel</AlertDialogCancel><AlertDialogAction onClick={()=>{resetAllProgress(); setShowResetConfirm(false);}} className="bg-red-600 hover:bg-red-700">Reset</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
@@ -534,7 +674,7 @@ useEffect(() => {
         
         {/* Program Tabs */}
         <Tabs 
-          defaultValue="strength" 
+          value={selectedTrack} 
           className="mb-20 sm:mb-0" // Keep this margin at the bottom
           onValueChange={(value) => setSelectedTrack(value as TrackId)}
         >
@@ -557,7 +697,6 @@ useEffect(() => {
                     idSuffix={`${key}-week-${week.week}`}
                     isOpen={openWeeks[`${key}-${week.week}`]}
                     onToggle={(isOpen) => {
-                        console.log('Toggling', `${key}-${week.week}`, 'to', isOpen);
                         setOpenWeeks(prev => ({
                             ...prev,
                             [`${key}-${week.week}`]: isOpen
@@ -579,7 +718,7 @@ useEffect(() => {
                         const habitDescription = habitDescriptions[habit.id];
                         
                         return (
-                          <div key={habit.id} className={`group flex items-start space-x-3 p-3 rounded-md transition-colors duration-150 ${isCheckedToday ? 'bg-green-900/40 hover:bg-green-900/50' : 'hover:bg-gray-700/40'}`}>
+                          <div key={habit.id} className={`group flex items-start space-x-3 p-3 rounded-md border transition-colors duration-150 ${isCheckedToday ? 'bg-green-900/30 border-green-700/50 hover:bg-green-900/40' : 'hover:bg-gray-700/40 border-gray-700/40'}`}>
                             <input 
                               type="checkbox" 
                               id={`habit-${habit.id}`} 
@@ -595,6 +734,9 @@ useEffect(() => {
                                 >
                                   {habit.habit}
                                 </label>
+                                {isCheckedToday && (
+                                  <span className="text-[10px] uppercase tracking-wide bg-green-700/40 text-green-300 px-2 py-0.5 rounded-full">Done today</span>
+                                )}
                                 
                                 {/* Why This Matters tooltip */}
                                 <button 
